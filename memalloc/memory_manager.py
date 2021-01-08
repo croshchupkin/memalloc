@@ -1,3 +1,15 @@
+"""
+The module containing the implementation for the MemoryManager.
+The allocation-specific documentation is located on the MemoryManager class.
+
+The first-fit memory allocation with faux "memory-address"-ordered memory
+blocks was chosen as a reasonable simple solution (basically a greatly simplified
+version of g++ memory allocator, which is a first-fit roving pointer algorithm
+enhanced with bins of different sizes). Further improvement of the memory management
+approach will require further reading of the memory management-related
+research papers, as the efficacy of algorithms and policies is not always evident
+without thorough testing in conditions close to the real-world ones.
+"""
 from typing import Optional
 
 from .exceptions import OutOfMemoryError
@@ -24,12 +36,29 @@ class MemoryManager:
     For simplicity, this memory manager immediately tries to coalesce the
     freshly-freed block with the neighbouring free blocks. Note that this only
     happens on explicit `free` call, and if the memory were pre-split into the
-    same-sized during the memory manager creation, and if we tried to allocate
+    same-sized blocks during the memory manager creation, and if we tried to allocate
     a block larger than the initial block size, we would get an OutOfMemoryError.
+
+    The pros of the chosen approach are the lack of internal fragmentation due to
+    perfect-fit memory block allocation, as well as (possibly) better locality of
+    reference when working with same-size memory blocks due to the search always
+    starting at the beginning of the blocks' list. When working with same-size
+    blocks, all of the "gaps" left after free will always be able to contain the
+    newly-allocated block. It needs to be mentioned that in case of frequent frees
+    of adjacent blocks these will be coalesced into a single large block, which
+    will then lead to re-splitting of the said block when using `alloc` to allocate
+    a new one. In cases of working with same-size blocks only, this may be
+    optimized by allowing to turn off coalescence completely.
+
+    Searching for a fitting block will take O(N) at worst, and *may* be improved
+    by using a roving pointer to the block list and using a set of "bins"
+    containing pre-split blocks of different sizes (similar to how g++ memory
+    allocator works) - but this requires further reading of the reasearch papers
+    on my side.
 
     Due to time constraints, all of the memory blocks are represented by
     memoryview objects into the buffer, created by the slicing of the main
-    memoryview wrapping the buffer. The block are marked as free or allocated
+    memoryview wrapping the buffer. The blocks are marked as free or allocated
     by assigning to the `allocated` boolean attribute dynamically added to each
     memoryview object, as well as the `offset` attribute indicating the
     offset in the buffer at which the block starts. I consider this solution as
@@ -45,14 +74,14 @@ class MemoryManager:
     accessing the buffer's contents and working with the list of blocks and its
     contents.
 
-    Most of the conditions are simply asserted in the methods to speed up the
-    development process.
+    At the moment most of the preconditions are simply asserted in the methods
+    to speed up the development process.
     """
     def __init__(self,
                  buf: bytearray,
                  initial_block_size: Optional[int] = None) -> None:
         """
-        Creates a memoryview into the buffer provided buffer, to allow the
+        Creates a memoryview into the provided buffer, to allow the
         interaction with sub-buffers such as slicing without creating new
         bytearray objects.
         All allocation and free operations will interact with the memoryview
