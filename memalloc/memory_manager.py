@@ -213,7 +213,6 @@ class MemoryManager:
         """
         assert 0 <= block_idx < len(self.blocks), '`block_idx` must be a correct block index'
 
-        # import ipdb; ipdb.set_trace()
         # how many old blocks to pop off the list
         num_pops = 1
         # the index in the block list to start removing the blocks at
